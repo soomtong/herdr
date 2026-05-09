@@ -337,6 +337,7 @@ available agent keys:
 - `kimi`
 - `droid`
 - `amp`
+- `devin`
 
 ## advanced
 

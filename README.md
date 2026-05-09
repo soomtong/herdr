@@ -155,6 +155,7 @@ automatic detection works out of the box. process name matching plus terminal ou
 | [droid](https://factory.ai) | ✓ | ✓ | ✓ |
 | [amp](https://ampcode.com) | ✓ | ✓ | ✓ |
 | [opencode](https://github.com/anomalyco/opencode) | ✓ | ✓ | ✓ |
+| [devin](https://cli.devin.ai) | ✓ | ✓ | ✓ |
 
 detected but not fully tested: gemini cli, cursor agent, cline, kimi, github copilot cli.
 

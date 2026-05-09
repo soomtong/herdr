@@ -30,6 +30,7 @@ pub enum Agent {
     Kimi,
     Droid,
     Amp,
+    Devin,
 }
 
 pub fn agent_label(agent: Agent) -> &'static str {
@@ -45,6 +46,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Kimi => "kimi",
         Agent::Droid => "droid",
         Agent::Amp => "amp",
+        Agent::Devin => "devin",
     }
 }
 
@@ -62,6 +64,7 @@ pub fn parse_agent_label(agent: &str) -> Option<Agent> {
         "kimi" => Some(Agent::Kimi),
         "droid" => Some(Agent::Droid),
         "amp" | "amp-local" => Some(Agent::Amp),
+        "devin" => Some(Agent::Devin),
         _ => None,
     }
 }
@@ -83,6 +86,7 @@ pub fn identify_agent(process_name: &str) -> Option<Agent> {
         "kimi" => Some(Agent::Kimi),
         "droid" => Some(Agent::Droid),
         "amp" | "amp-local" => Some(Agent::Amp),
+        "devin" => Some(Agent::Devin),
         _ => None,
     }
 }
@@ -124,6 +128,7 @@ pub fn detect_state(agent: Option<Agent>, screen_content: &str) -> AgentState {
         Agent::Kimi => detect_kimi(screen_content),
         Agent::Droid => detect_droid(screen_content),
         Agent::Amp => detect_amp(screen_content),
+        Agent::Devin => detect_devin(screen_content),
     }
 }
 
@@ -421,6 +426,95 @@ fn detect_amp(content: &str) -> AgentState {
     AgentState::Idle
 }
 
+/// Devin (Cognition) agent detection.
+///
+/// It shows status bars and dialog-style prompts in its REPL.
+///
+/// Working layout:
+/// ```text
+///   Refactoring auth module...
+///   (esc to interrupt)          +t to cycle thinking levels
+/// ```
+///
+/// Blocked layout (examples):
+/// ```text
+///   Are you sure you want to continue? [y/N]
+///   ! select  Enter revert  Esc cancel
+///   Enter submit  Esc cancel
+///   Tool approval pending  -  press q to return
+/// ```
+fn detect_devin(content: &str) -> AgentState {
+    let lower = content.to_lowercase();
+
+    // --- Blocked detection ---
+
+    let has_enter_action = (lower.contains("enter save")
+        || lower.contains("enter submit")
+        || lower.contains("enter confirm"))
+        && (lower.contains("esc cancel") || lower.contains("esc skip"));
+    let has_revert_select = lower.contains("! select")
+        && lower.contains("enter revert")
+        && lower.contains("esc cancel");
+    let has_pending_status = lower.contains("tool approval pending")
+        || lower.contains("authentication pending")
+        || lower.contains("question pending")
+        || lower.contains("network permission pending")
+        || lower.contains("input needed")
+        || lower.contains("disabled by user");
+    let has_confirmation =
+        lower.contains("are you sure you want to continue?") && lower.contains("[y/n]");
+    let has_selection = has_devin_selection_prompt(content, &lower);
+
+    if has_enter_action
+        || has_revert_select
+        || has_pending_status
+        || has_confirmation
+        || has_selection
+    {
+        return AgentState::Blocked;
+    }
+
+    // --- Working detection ---
+
+    if lower.contains("(esc to interrupt)") {
+        return AgentState::Working;
+    }
+
+    if lower.contains("+t to cycle thinking levels") {
+        return AgentState::Working;
+    }
+
+    AgentState::Idle
+}
+
+/// Devin permission prompt: lines with `❭` or `·` followed by a digit
+/// and approve/deny keywords like "Yes", "No", "Approve".
+///
+/// Example:
+/// ```text
+/// ❭ 1 Yes  (Approve once)
+/// · 2 Yes, switch to accept edits mode
+/// · 3 No
+/// ```
+fn has_devin_selection_prompt(content: &str, lower: &str) -> bool {
+    let has_decision_word =
+        lower.contains("approve") || (lower.contains("yes") && lower.contains("no"));
+
+    if !has_decision_word {
+        return false;
+    }
+
+    content.lines().any(|line| {
+        let trimmed = line.trim();
+        let mut chars = trimmed.chars();
+        // ❭ (U+276D) = selected option marker, · (U+00B7) = non-selected
+        matches!(chars.next(), Some('\u{276D}') | Some('\u{00B7}'))
+            && chars
+                .find(|c| !c.is_whitespace())
+                .is_some_and(|c| c.is_ascii_digit())
+    })
+}
+
 /// Check for braille spinner characters at the start of a line.
 /// These are the Unicode braille pattern dots used by CLI spinners.
 fn has_braille_spinner(content: &str) -> bool {
@@ -670,6 +764,7 @@ mod tests {
         assert_eq!(identify_agent("opencode"), Some(Agent::OpenCode));
         assert_eq!(identify_agent("kimi"), Some(Agent::Kimi));
         assert_eq!(identify_agent("ghcs"), Some(Agent::GithubCopilot));
+        assert_eq!(identify_agent("devin"), Some(Agent::Devin));
     }
 
     #[test]
@@ -1253,6 +1348,134 @@ mod tests {
     fn amp_identified_by_process_name() {
         assert_eq!(identify_agent("amp"), Some(Agent::Amp));
         assert_eq!(identify_agent("amp-local"), Some(Agent::Amp));
+    }
+
+    // ---- Devin ----
+
+    #[test]
+    fn devin_working_esc_to_interrupt() {
+        let screen = "Refactoring auth module...\n(esc to interrupt)";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Working
+        );
+    }
+
+    #[test]
+    fn devin_working_thinking_levels() {
+        let screen = "Exploring codebase\n+t to cycle thinking levels";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Working
+        );
+    }
+
+    #[test]
+    fn devin_blocked_save_prompt() {
+        let screen = "Enter save  Esc cancel";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_submit_prompt() {
+        let screen = "Enter submit  Esc cancel";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_revert_select() {
+        let screen = "! select  Enter revert  Esc cancel";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_confirm_skip() {
+        let screen = "Enter confirm  Esc skip";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_confirmation_yn() {
+        let screen = "Are you sure you want to continue? [y/N]";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_tool_approval_pending() {
+        let screen = "Tool approval pending  -  press q to return";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_input_needed() {
+        let screen = "Input needed  -  press q to return";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_approve_selection() {
+        let screen = "❭ 1 Yes  (Approve once)\n· 2 Yes, switch to accept edits mode\n· 3 No";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_blocked_approve_selection_reversed() {
+        let screen = "· 1 Approve\n❭ 2 Deny";
+        assert_eq!(
+            detect_state(Some(Agent::Devin), screen),
+            AgentState::Blocked
+        );
+    }
+
+    #[test]
+    fn devin_idle() {
+        let screen = "Response complete.\n❯ ";
+        assert_eq!(detect_state(Some(Agent::Devin), screen), AgentState::Idle);
+    }
+
+    #[test]
+    fn devin_identified_by_process_name() {
+        assert_eq!(identify_agent("devin"), Some(Agent::Devin));
+    }
+
+    #[test]
+    fn devin_identified_by_label() {
+        assert_eq!(parse_agent_label("devin"), Some(Agent::Devin));
+    }
+
+    #[test]
+    fn devin_label() {
+        assert_eq!(agent_label(Agent::Devin), "devin");
+    }
+
+    #[test]
+    fn devin_selection_prompt_without_decision_words() {
+        let screen = "❭ 1 Option 1\n· 2 Option 2";
+        assert_eq!(detect_state(Some(Agent::Devin), screen), AgentState::Idle);
     }
 
     // ---- Helpers ----

@@ -458,8 +458,16 @@ impl Config {
                 (KeyCode::Up, KeyModifiers::empty()),
             ),
             (
+                "navigate.workspace_up",
+                (KeyCode::Char('p'), KeyModifiers::CONTROL),
+            ),
+            (
                 "navigate.workspace_down",
                 (KeyCode::Down, KeyModifiers::empty()),
+            ),
+            (
+                "navigate.workspace_down",
+                (KeyCode::Char('n'), KeyModifiers::CONTROL),
             ),
             (
                 "navigate.focus_left",

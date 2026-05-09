@@ -1,7 +1,7 @@
 use std::process::{Command, Stdio};
 
 use bytes::Bytes;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::Direction;
 
 use crate::{
@@ -297,14 +297,14 @@ pub(super) fn handle_navigate_reserved_key(state: &mut AppState, key: KeyEvent) 
             super::modal::open_keybind_help(state);
             true
         }
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('p') if key.code == KeyCode::Up || key.modifiers == KeyModifiers::CONTROL => {
             if state.selected > 0 {
                 state.selected -= 1;
                 state.ensure_workspace_visible(state.selected);
             }
             true
         }
-        KeyCode::Down => {
+        KeyCode::Down | KeyCode::Char('n') if key.code == KeyCode::Down || key.modifiers == KeyModifiers::CONTROL => {
             if !state.workspaces.is_empty() && state.selected < state.workspaces.len() - 1 {
                 state.selected += 1;
                 state.ensure_workspace_visible(state.selected);

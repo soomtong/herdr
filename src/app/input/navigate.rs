@@ -281,6 +281,17 @@ pub(super) fn handle_navigate_reserved_key(state: &mut AppState, key: KeyEvent) 
             }
             true
         }
+        // works only kitty protocol support terminals
+        KeyCode::Char(c @ '1'..='9') if key.modifiers == KeyModifiers::CONTROL => {
+            let idx = (c as usize) - ('1' as usize);
+            if let Some(ws) = state.active.and_then(|i| state.workspaces.get(i)) {
+                if idx < ws.tabs.len() {
+                    state.switch_tab(idx);
+                    leave_navigate_mode(state);
+                }
+            }
+            true
+        }
         KeyCode::Char(c @ '1'..='9') => {
             let idx = (c as usize) - ('1' as usize);
             if idx < state.workspaces.len() {

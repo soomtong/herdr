@@ -534,6 +534,42 @@ impl Config {
                 "navigate.workspace_9",
                 (KeyCode::Char('9'), KeyModifiers::empty()),
             ),
+            (
+                "navigate.tab_1",
+                (KeyCode::Char('1'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_2",
+                (KeyCode::Char('2'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_3",
+                (KeyCode::Char('3'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_4",
+                (KeyCode::Char('4'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_5",
+                (KeyCode::Char('5'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_6",
+                (KeyCode::Char('6'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_7",
+                (KeyCode::Char('7'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_8",
+                (KeyCode::Char('8'), KeyModifiers::CONTROL),
+            ),
+            (
+                "navigate.tab_9",
+                (KeyCode::Char('9'), KeyModifiers::CONTROL),
+            ),
             ("navigate.back", (KeyCode::Esc, KeyModifiers::empty())),
         ] {
             registry.reserve_if_unbound(BindingScope::Navigate, binding, field);

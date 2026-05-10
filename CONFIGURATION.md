@@ -105,6 +105,8 @@ previous_workspace = "ctrl+alt+["
 next_workspace = "ctrl+alt+]"
 previous_tab = "alt+["
 next_tab = "alt+]"
+previous_agent = "alt+{"
+next_agent = "alt+}"
 focus_pane_left = "alt+h"
 focus_pane_down = "alt+j"
 focus_pane_up = "alt+k"
@@ -127,6 +129,8 @@ focus_pane_right = "alt+l"
 | `rename_tab` | unset | rename the active tab |
 | `previous_tab` | unset | switch to the previous tab directly from terminal mode |
 | `next_tab` | unset | switch to the next tab directly from terminal mode |
+| `previous_agent` | unset | focus the previous agent in the sidebar directly from terminal mode |
+| `next_agent` | unset | focus the next agent in the sidebar directly from terminal mode |
 | `close_tab` | unset | close the active tab |
 | `focus_pane_left` | unset | focus the pane to the left directly from terminal mode |
 | `focus_pane_down` | unset | focus the pane below directly from terminal mode |

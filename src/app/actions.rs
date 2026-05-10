@@ -323,6 +323,33 @@ impl AppState {
         }
     }
 
+    pub fn next_agent(&mut self) {
+        let entries = crate::ui::agent_panel_entries(self);
+        if entries.is_empty() {
+            return;
+        }
+        let current = current_agent_index(self, &entries);
+        let next = match current {
+            Some(idx) => (idx + 1) % entries.len(),
+            None => 0,
+        };
+        focus_agent_entry(self, &entries[next]);
+    }
+
+    pub fn previous_agent(&mut self) {
+        let entries = crate::ui::agent_panel_entries(self);
+        if entries.is_empty() {
+            return;
+        }
+        let current = current_agent_index(self, &entries);
+        let prev = match current {
+            Some(0) => entries.len() - 1,
+            Some(idx) => idx - 1,
+            None => 0,
+        };
+        focus_agent_entry(self, &entries[prev]);
+    }
+
     pub fn close_selected_workspace(&mut self) {
         if self.workspaces.is_empty() {
             return;
@@ -374,6 +401,28 @@ impl AppState {
         self.view.tab_scroll_right_hit_area = layout.scroll_right_hit_area;
         self.view.new_tab_hit_area = layout.new_tab_hit_area;
     }
+}
+
+fn focus_agent_entry(state: &mut AppState, entry: &crate::ui::AgentPanelEntry) {
+    state.switch_workspace(entry.ws_idx);
+    state.switch_tab(entry.tab_idx);
+    if let Some(ws) = state.workspaces.get_mut(entry.ws_idx) {
+        if ws.layout.focused() != entry.pane_id {
+            ws.layout.focus_pane(entry.pane_id);
+            state.mark_session_dirty();
+        }
+    }
+}
+
+fn current_agent_index(state: &AppState, entries: &[crate::ui::AgentPanelEntry]) -> Option<usize> {
+    let ws_idx = state.active?;
+    let ws = state.workspaces.get(ws_idx)?;
+    let tab_idx = ws.active_tab;
+    let tab = ws.tabs.get(tab_idx)?;
+    let pane_id = tab.layout.focused();
+    entries
+        .iter()
+        .position(|e| e.ws_idx == ws_idx && e.tab_idx == tab_idx && e.pane_id == pane_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -767,6 +816,7 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::AgentPanelScope;
     use crate::detect::{Agent, AgentState};
     use crate::workspace::Workspace;
     use ratatui::layout::Direction;
@@ -1317,5 +1367,134 @@ mod tests {
 
         state.close_pane();
         assert_eq!(state.workspaces[0].panes.len(), 1);
+    }
+
+    #[test]
+    fn next_agent_cycles_through_agents_in_same_workspace() {
+        let mut state = AppState::test_new();
+        let mut ws = Workspace::test_new("test");
+        ws.tabs[0].set_custom_name("main".into());
+        let first_pane = ws.tabs[0].root_pane;
+        ws.tabs[0]
+            .panes
+            .get_mut(&first_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Pi);
+        let second_tab = ws.test_add_tab(Some("logs"));
+        let second_pane = ws.tabs[second_tab].root_pane;
+        ws.tabs[second_tab]
+            .panes
+            .get_mut(&second_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Claude);
+        state.workspaces = vec![ws];
+        state.active = Some(0);
+        state.selected = 0;
+        state.mode = Mode::Terminal;
+
+        state.next_agent();
+        assert_eq!(state.workspaces[0].active_tab, 1);
+        assert_eq!(state.workspaces[0].layout.focused(), second_pane);
+
+        state.next_agent();
+        assert_eq!(state.workspaces[0].active_tab, 0);
+        assert_eq!(state.workspaces[0].layout.focused(), first_pane);
+
+        state.next_agent();
+        assert_eq!(state.workspaces[0].active_tab, 1);
+        assert_eq!(state.workspaces[0].layout.focused(), second_pane);
+    }
+
+    #[test]
+    fn previous_agent_cycles_backwards() {
+        let mut state = AppState::test_new();
+        let mut ws = Workspace::test_new("test");
+        let first_pane = ws.tabs[0].root_pane;
+        ws.tabs[0]
+            .panes
+            .get_mut(&first_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Pi);
+        let second_tab = ws.test_add_tab(Some("logs"));
+        let second_pane = ws.tabs[second_tab].root_pane;
+        ws.tabs[second_tab]
+            .panes
+            .get_mut(&second_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Claude);
+        state.workspaces = vec![ws];
+        state.active = Some(0);
+        state.selected = 0;
+        state.mode = Mode::Terminal;
+
+        state.previous_agent();
+        assert_eq!(state.workspaces[0].active_tab, 1);
+        assert_eq!(state.workspaces[0].layout.focused(), second_pane);
+
+        state.previous_agent();
+        assert_eq!(state.workspaces[0].active_tab, 0);
+        assert_eq!(state.workspaces[0].layout.focused(), first_pane);
+    }
+
+    #[test]
+    fn next_agent_crosses_workspaces() {
+        let mut state = AppState::test_new();
+        let mut first = Workspace::test_new("one");
+        let first_pane = first.tabs[0].root_pane;
+        first.tabs[0]
+            .panes
+            .get_mut(&first_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Pi);
+
+        let mut second = Workspace::test_new("two");
+        let second_pane = second.tabs[0].root_pane;
+        second.tabs[0]
+            .panes
+            .get_mut(&second_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Claude);
+
+        state.workspaces = vec![first, second];
+        state.active = Some(0);
+        state.selected = 0;
+        state.mode = Mode::Terminal;
+        state.agent_panel_scope = AgentPanelScope::AllWorkspaces;
+
+        state.next_agent();
+        assert_eq!(state.active, Some(1));
+        assert_eq!(state.workspaces[1].layout.focused(), second_pane);
+
+        state.next_agent();
+        assert_eq!(state.active, Some(0));
+        assert_eq!(state.workspaces[0].layout.focused(), first_pane);
+    }
+
+    #[test]
+    fn next_agent_noop_when_no_agents() {
+        let mut state = app_with_workspaces(&["test"]);
+        let focused = state.workspaces[0].layout.focused();
+        state.next_agent();
+        assert_eq!(state.workspaces[0].layout.focused(), focused);
+    }
+
+    #[test]
+    fn next_agent_starts_at_first_agent_when_current_pane_is_not_agent() {
+        let mut state = AppState::test_new();
+        let mut ws = Workspace::test_new("test");
+        ws.test_split(Direction::Horizontal);
+        let first_pane = ws.tabs[0].root_pane;
+        ws.tabs[0]
+            .panes
+            .get_mut(&first_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Pi);
+        state.workspaces = vec![ws];
+        state.active = Some(0);
+        state.selected = 0;
+        state.mode = Mode::Terminal;
+
+        state.next_agent();
+        assert_eq!(state.workspaces[0].layout.focused(), first_pane);
     }
 }

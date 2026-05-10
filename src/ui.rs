@@ -54,7 +54,7 @@ pub(crate) use self::{
         agent_panel_scrollbar_rect, agent_panel_toggle_rect, collapsed_sidebar_sections,
         collapsed_sidebar_toggle_rect, compute_workspace_card_areas, expanded_sidebar_sections,
         sidebar_section_divider_rect, workspace_drop_indicator_row, workspace_list_rect,
-        workspace_list_scroll_metrics, workspace_list_scrollbar_rect,
+        workspace_list_scroll_metrics, workspace_list_scrollbar_rect, AgentPanelEntry,
     },
 };
 pub(crate) use self::{

@@ -66,6 +66,18 @@ pub(crate) fn terminal_direct_navigation_action(
     {
         return Some(NavigateAction::FocusPaneRight);
     }
+    if kb
+        .previous_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::PreviousAgent);
+    }
+    if kb
+        .next_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::NextAgent);
+    }
     None
 }
 
@@ -367,6 +379,8 @@ pub(crate) enum NavigateAction {
     RenameTab,
     PreviousTab,
     NextTab,
+    PreviousAgent,
+    NextAgent,
     CloseTab,
     FocusPaneLeft,
     FocusPaneDown,
@@ -425,6 +439,18 @@ fn navigate_action_for_key(state: &AppState, key: &KeyEvent) -> Option<NavigateA
         .is_some_and(|(code, mods)| key_matches(key, code, mods))
     {
         return Some(NavigateAction::NextTab);
+    }
+    if kb
+        .previous_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::PreviousAgent);
+    }
+    if kb
+        .next_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::NextAgent);
     }
     if kb
         .close_tab
@@ -504,6 +530,14 @@ pub(super) fn execute_navigate_action(state: &mut AppState, action: NavigateActi
             state.next_tab();
             leave_navigate_mode(state);
         }
+        NavigateAction::PreviousAgent => {
+            state.previous_agent();
+            leave_navigate_mode(state);
+        }
+        NavigateAction::NextAgent => {
+            state.next_agent();
+            leave_navigate_mode(state);
+        }
         NavigateAction::CloseTab => {
             state.close_tab();
             leave_navigate_mode(state);
@@ -559,7 +593,9 @@ mod tests {
 
     use super::super::{state_with_workspaces, unique_temp_path, wait_for_file};
     use super::*;
-    use crate::{app::App, config::Config, input::TerminalKey, workspace::Workspace};
+    use crate::{
+        app::App, config::Config, detect::Agent, input::TerminalKey, workspace::Workspace,
+    };
 
     #[test]
     fn custom_rename_key_enters_rename_mode() {
@@ -848,5 +884,80 @@ mod tests {
         ));
         assert!(state.detach_requested);
         assert!(!state.should_quit);
+    }
+
+    #[test]
+    fn terminal_direct_previous_agent_action_matches_configured_key() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.keybinds.previous_agent = Some((KeyCode::Char('{'), KeyModifiers::ALT));
+        state.keybinds.previous_agent_label = Some("alt+{".into());
+
+        let action = terminal_direct_navigation_action(
+            &state,
+            &KeyEvent::new(KeyCode::Char('{'), KeyModifiers::ALT),
+        );
+        assert_eq!(action, Some(NavigateAction::PreviousAgent));
+    }
+
+    #[test]
+    fn terminal_direct_next_agent_action_matches_configured_key() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.keybinds.next_agent = Some((KeyCode::Char('}'), KeyModifiers::ALT));
+        state.keybinds.next_agent_label = Some("alt+}".into());
+
+        let action = terminal_direct_navigation_action(
+            &state,
+            &KeyEvent::new(KeyCode::Char('}'), KeyModifiers::ALT),
+        );
+        assert_eq!(action, Some(NavigateAction::NextAgent));
+    }
+
+    #[test]
+    fn navigate_mode_agent_action_key_matches() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.keybinds.next_agent = Some((KeyCode::Char('}'), KeyModifiers::ALT));
+        state.keybinds.next_agent_label = Some("alt+}".into());
+
+        let action = navigate_action_for_key(
+            &state,
+            &KeyEvent::new(KeyCode::Char('}'), KeyModifiers::ALT),
+        );
+        assert_eq!(action, Some(NavigateAction::NextAgent));
+    }
+
+    #[test]
+    fn agent_navigation_action_switches_to_agent_pane() {
+        let mut state = crate::app::state::AppState::test_new();
+        let mut ws = Workspace::test_new("test");
+        let first_pane = ws.tabs[0].root_pane;
+        ws.tabs[0]
+            .panes
+            .get_mut(&first_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Pi);
+        let second_tab = ws.test_add_tab(Some("logs"));
+        let second_pane = ws.tabs[second_tab].root_pane;
+        ws.tabs[second_tab]
+            .panes
+            .get_mut(&second_pane)
+            .unwrap()
+            .detected_agent = Some(Agent::Claude);
+        state.workspaces = vec![ws];
+        state.active = Some(0);
+        state.selected = 0;
+        state.mode = Mode::Terminal;
+
+        execute_navigate_action(&mut state, NavigateAction::NextAgent);
+        assert_eq!(state.workspaces[0].active_tab, 1);
+        assert_eq!(state.workspaces[0].layout.focused(), second_pane);
+        assert_eq!(state.mode, Mode::Terminal);
+
+        execute_navigate_action(&mut state, NavigateAction::NextAgent);
+        assert_eq!(state.workspaces[0].active_tab, 0);
+        assert_eq!(state.workspaces[0].layout.focused(), first_pane);
+
+        execute_navigate_action(&mut state, NavigateAction::PreviousAgent);
+        assert_eq!(state.workspaces[0].active_tab, 1);
+        assert_eq!(state.workspaces[0].layout.focused(), second_pane);
     }
 }

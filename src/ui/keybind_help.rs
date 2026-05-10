@@ -71,6 +71,11 @@ pub(super) fn keybind_help_groups(
             "previous tab",
         ),
         (optional_keybind_label(&kb.next_tab_label), "next tab"),
+        (
+            optional_keybind_label(&kb.previous_agent_label),
+            "previous agent",
+        ),
+        (optional_keybind_label(&kb.next_agent_label), "next agent"),
         (optional_keybind_label(&kb.close_tab_label), "close tab"),
     ];
     if let Some(label) = &kb.detach_label {

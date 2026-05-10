@@ -91,6 +91,10 @@ pub struct KeysConfig {
     pub previous_tab: String,
     /// Select the next tab. Unset by default.
     pub next_tab: String,
+    /// Focus the previous agent in the sidebar. Unset by default.
+    pub previous_agent: String,
+    /// Focus the next agent in the sidebar. Unset by default.
+    pub next_agent: String,
     /// Close the active tab. Unset by default.
     pub close_tab: String,
     /// Focus the pane to the left in terminal mode. Unset by default.
@@ -159,6 +163,8 @@ impl Default for KeysConfig {
             rename_tab: "".into(),
             previous_tab: "".into(),
             next_tab: "".into(),
+            previous_agent: "".into(),
+            next_agent: "".into(),
             close_tab: "".into(),
             focus_pane_left: "".into(),
             focus_pane_down: "".into(),

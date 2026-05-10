@@ -343,6 +343,7 @@ impl App {
             sidebar_collapsed: false,
             sidebar_section_split,
             agent_panel_scope,
+            agent_panel_selected: None,
             confirm_close: config.ui.confirm_close,
             pane_scrollback_limit_bytes: config.advanced.scrollback_limit_bytes,
             accent: crate::config::parse_color(&config.ui.accent),
@@ -839,6 +840,7 @@ impl App {
             Mode::Terminal => {
                 // Should not be called in terminal mode.
             }
+            Mode::AgentPanelFocus => {}
         }
     }
 

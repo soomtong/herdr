@@ -389,6 +389,7 @@ pub enum Mode {
     Settings,
     GlobalMenu,
     KeybindHelp,
+    AgentPanelFocus,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -682,6 +683,7 @@ pub struct AppState {
     /// Ratio of sidebar height allocated to the workspaces section.
     pub sidebar_section_split: f32,
     pub agent_panel_scope: AgentPanelScope,
+    pub agent_panel_selected: Option<usize>,
     pub confirm_close: bool,
     pub pane_scrollback_limit_bytes: usize,
     #[allow(dead_code)] // kept for backward compat; palette.accent is the source of truth
@@ -843,6 +845,7 @@ impl AppState {
             sidebar_collapsed: false,
             sidebar_section_split: 0.5,
             agent_panel_scope: AgentPanelScope::AllWorkspaces,
+            agent_panel_selected: None,
             confirm_close: true,
             pane_scrollback_limit_bytes: crate::config::DEFAULT_SCROLLBACK_LIMIT_BYTES,
             accent: Color::Cyan,
@@ -877,6 +880,12 @@ impl AppState {
                 next_tab_label: None,
                 close_tab: None,
                 close_tab_label: None,
+                previous_agent: None,
+                previous_agent_label: None,
+                next_agent: None,
+                next_agent_label: None,
+                agent_panel_focus: Some((KeyCode::Char('a'), KeyModifiers::empty())),
+                agent_panel_focus_label: Some("a".into()),
                 focus_pane_left: None,
                 focus_pane_left_label: None,
                 focus_pane_down: None,

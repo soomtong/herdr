@@ -22,6 +22,7 @@ enum WheelRouting {
 const WORKSPACE_DRAG_THRESHOLD: u16 = 1;
 const TAB_DRAG_THRESHOLD: u16 = 1;
 
+mod agent_panel_focus;
 mod modal;
 mod mouse;
 mod navigate;
@@ -72,6 +73,9 @@ impl App {
                     Mode::Settings => self.handle_settings_key(key),
                     Mode::GlobalMenu => handle_global_menu_key(&mut self.state, key),
                     Mode::KeybindHelp => handle_keybind_help_key(&mut self.state, key),
+                    Mode::AgentPanelFocus => {
+                        agent_panel_focus::handle_agent_panel_focus_key(&mut self.state, key)
+                    }
                     Mode::Terminal => unreachable!(),
                 }
             }

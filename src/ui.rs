@@ -269,6 +269,7 @@ pub fn render(app: &AppState, frame: &mut Frame) {
         Mode::GlobalMenu => render_global_launcher_menu(app, frame),
         Mode::KeybindHelp => render_keybind_help_overlay(app, frame),
         Mode::Terminal => {}
+        Mode::AgentPanelFocus => {}
     }
 
     // Notifications (rendered on top of everything)

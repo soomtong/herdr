@@ -754,10 +754,17 @@ fn render_agent_detail(app: &AppState, frame: &mut Frame, area: Rect) {
         Rect::new(area.x, area.y, area.width, 1),
     );
 
+    let header_color = if app.mode == crate::app::state::Mode::AgentPanelFocus {
+        p.accent
+    } else {
+        p.overlay0
+    };
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
             " agents",
-            Style::default().fg(p.overlay0).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(header_color)
+                .add_modifier(Modifier::BOLD),
         )])),
         Rect::new(area.x, area.y + 1, area.width, 1),
     );
@@ -783,7 +790,9 @@ fn render_agent_detail(app: &AppState, frame: &mut Frame, area: Rect) {
 
     let mut row_y = body.y;
     let body_bottom = body.y + body.height;
-    for detail in details.iter().skip(app.agent_panel_scroll) {
+    let is_focused_mode = app.mode == crate::app::state::Mode::AgentPanelFocus;
+    let selected_idx = app.agent_panel_selected.unwrap_or(usize::MAX);
+    for (entry_offset, detail) in details.iter().enumerate().skip(app.agent_panel_scroll) {
         if row_y.saturating_add(1) >= body_bottom {
             break;
         }
@@ -816,10 +825,10 @@ fn render_agent_detail(app: &AppState, frame: &mut Frame, area: Rect) {
         let primary_label =
             format_agent_panel_primary_label(detail, body.width.saturating_sub(3) as usize);
         let name_line = Line::from(vec![
-            Span::styled(" ", Style::default()),
-            Span::styled(icon, icon_style),
-            Span::styled(" ", Style::default()),
-            Span::styled(primary_label, name_style),
+            Span::styled(" ", row_bg),
+            Span::styled(icon, icon_style.patch(row_bg)),
+            Span::styled(" ", row_bg),
+            Span::styled(primary_label, name_style.patch(row_bg)),
         ]);
         frame.render_widget(
             Paragraph::new(name_line).style(row_style),
@@ -828,12 +837,12 @@ fn render_agent_detail(app: &AppState, frame: &mut Frame, area: Rect) {
         row_y += 1;
 
         let mut status_spans = vec![
-            Span::styled("   ", Style::default()),
-            Span::styled(label, status_style),
+            Span::styled("   ", row_bg),
+            Span::styled(label, status_style.patch(row_bg)),
         ];
         if let Some(agent_label) = &detail.agent_label {
-            status_spans.push(Span::styled(" · ", agent_style));
-            status_spans.push(Span::styled(agent_label, agent_style));
+            status_spans.push(Span::styled(" · ", agent_style.patch(row_bg)));
+            status_spans.push(Span::styled(agent_label, agent_style.patch(row_bg)));
         }
         frame.render_widget(
             Paragraph::new(Line::from(status_spans)).style(row_style),

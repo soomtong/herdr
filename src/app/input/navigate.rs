@@ -43,6 +43,18 @@ pub(crate) fn terminal_direct_navigation_action(
         return Some(NavigateAction::NextTab);
     }
     if kb
+        .previous_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::PreviousAgent);
+    }
+    if kb
+        .next_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::NextAgent);
+    }
+    if kb
         .focus_pane_left
         .is_some_and(|(code, mods)| key_matches(key, code, mods))
     {
@@ -380,6 +392,9 @@ pub(crate) enum NavigateAction {
     ToggleSidebar,
     ReloadConfig,
     Detach,
+    AgentPanelFocus,
+    PreviousAgent,
+    NextAgent,
 }
 
 fn navigate_action_for_key(state: &AppState, key: &KeyEvent) -> Option<NavigateAction> {
@@ -462,6 +477,24 @@ fn navigate_action_for_key(state: &AppState, key: &KeyEvent) -> Option<NavigateA
     {
         return Some(NavigateAction::Detach);
     }
+    if kb
+        .agent_panel_focus
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::AgentPanelFocus);
+    }
+    if kb
+        .previous_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::PreviousAgent);
+    }
+    if kb
+        .next_agent
+        .is_some_and(|(code, mods)| key_matches(key, code, mods))
+    {
+        return Some(NavigateAction::NextAgent);
+    }
     None
 }
 
@@ -539,6 +572,23 @@ pub(super) fn execute_navigate_action(state: &mut AppState, action: NavigateActi
         }
         NavigateAction::Detach => {
             state.detach_requested = true;
+            leave_navigate_mode(state);
+        }
+        NavigateAction::AgentPanelFocus => {
+            super::agent_panel_focus::enter_agent_panel_focus(state);
+        }
+        NavigateAction::PreviousAgent => {
+            super::agent_panel_focus::jump_to_adjacent_agent(
+                state,
+                super::agent_panel_focus::AgentJumpDirection::Prev,
+            );
+            leave_navigate_mode(state);
+        }
+        NavigateAction::NextAgent => {
+            super::agent_panel_focus::jump_to_adjacent_agent(
+                state,
+                super::agent_panel_focus::AgentJumpDirection::Next,
+            );
             leave_navigate_mode(state);
         }
     }
@@ -835,6 +885,46 @@ mod tests {
         assert!(state.name_input_replace_on_type);
         assert!(!state.request_new_tab);
         assert_eq!(state.workspaces[0].tabs.len(), 1);
+    }
+
+    #[test]
+    fn terminal_direct_next_agent_maps_to_navigation_action() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.keybinds.next_agent = Some((KeyCode::Char(']'), KeyModifiers::ALT));
+        state.keybinds.next_agent_label = Some("alt+]".into());
+
+        let action = terminal_direct_navigation_action(
+            &state,
+            &KeyEvent::new(KeyCode::Char(']'), KeyModifiers::ALT),
+        );
+
+        assert_eq!(action, Some(NavigateAction::NextAgent));
+    }
+
+    #[test]
+    fn terminal_direct_previous_agent_maps_to_navigation_action() {
+        let mut state = state_with_workspaces(&["test"]);
+        state.keybinds.previous_agent = Some((KeyCode::Char('['), KeyModifiers::ALT));
+        state.keybinds.previous_agent_label = Some("alt+[".into());
+
+        let action = terminal_direct_navigation_action(
+            &state,
+            &KeyEvent::new(KeyCode::Char('['), KeyModifiers::ALT),
+        );
+
+        assert_eq!(action, Some(NavigateAction::PreviousAgent));
+    }
+
+    #[test]
+    fn terminal_direct_agent_panel_focus_is_not_terminal_direct() {
+        // agent_panel_focus is prefix-only and must NOT be picked up by terminal direct path.
+        let state = state_with_workspaces(&["test"]);
+        // Default 'a' is set automatically. Pressing 'a' in terminal mode should NOT match.
+        let action = terminal_direct_navigation_action(
+            &state,
+            &KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()),
+        );
+        assert_eq!(action, None);
     }
 
     #[test]

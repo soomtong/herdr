@@ -81,6 +81,12 @@ pub struct Keybinds {
     pub next_tab_label: Option<String>,
     pub close_tab: Option<(KeyCode, KeyModifiers)>,
     pub close_tab_label: Option<String>,
+    pub previous_agent: Option<(KeyCode, KeyModifiers)>,
+    pub previous_agent_label: Option<String>,
+    pub next_agent: Option<(KeyCode, KeyModifiers)>,
+    pub next_agent_label: Option<String>,
+    pub agent_panel_focus: Option<(KeyCode, KeyModifiers)>,
+    pub agent_panel_focus_label: Option<String>,
     pub focus_pane_left: Option<(KeyCode, KeyModifiers)>,
     pub focus_pane_left_label: Option<String>,
     pub focus_pane_down: Option<(KeyCode, KeyModifiers)>,
@@ -375,6 +381,24 @@ impl Config {
             ),
             optional_binding(
                 BindingScope::Navigate,
+                "keys.previous_agent",
+                &self.keys.previous_agent,
+                &mut diagnostics,
+            ),
+            optional_binding(
+                BindingScope::Navigate,
+                "keys.next_agent",
+                &self.keys.next_agent,
+                &mut diagnostics,
+            ),
+            optional_binding(
+                BindingScope::Navigate,
+                "keys.agent_panel_focus",
+                &self.keys.agent_panel_focus,
+                &mut diagnostics,
+            ),
+            optional_binding(
+                BindingScope::Navigate,
                 "keys.close_tab",
                 &self.keys.close_tab,
                 &mut diagnostics,
@@ -600,16 +624,22 @@ impl Config {
             previous_tab_label: optional_bindings[5].label.clone(),
             next_tab: optional_bindings[6].value,
             next_tab_label: optional_bindings[6].label.clone(),
-            close_tab: optional_bindings[7].value,
-            close_tab_label: optional_bindings[7].label.clone(),
-            focus_pane_left: optional_bindings[8].value,
-            focus_pane_left_label: optional_bindings[8].label.clone(),
-            focus_pane_down: optional_bindings[9].value,
-            focus_pane_down_label: optional_bindings[9].label.clone(),
-            focus_pane_up: optional_bindings[10].value,
-            focus_pane_up_label: optional_bindings[10].label.clone(),
-            focus_pane_right: optional_bindings[11].value,
-            focus_pane_right_label: optional_bindings[11].label.clone(),
+            previous_agent: optional_bindings[7].value,
+            previous_agent_label: optional_bindings[7].label.clone(),
+            next_agent: optional_bindings[8].value,
+            next_agent_label: optional_bindings[8].label.clone(),
+            agent_panel_focus: optional_bindings[9].value,
+            agent_panel_focus_label: optional_bindings[9].label.clone(),
+            close_tab: optional_bindings[10].value,
+            close_tab_label: optional_bindings[10].label.clone(),
+            focus_pane_left: optional_bindings[11].value,
+            focus_pane_left_label: optional_bindings[11].label.clone(),
+            focus_pane_down: optional_bindings[12].value,
+            focus_pane_down_label: optional_bindings[12].label.clone(),
+            focus_pane_up: optional_bindings[13].value,
+            focus_pane_up_label: optional_bindings[13].label.clone(),
+            focus_pane_right: optional_bindings[14].value,
+            focus_pane_right_label: optional_bindings[14].label.clone(),
             split_vertical: bindings[4].value,
             split_vertical_label: bindings[4].label.clone(),
             split_horizontal: bindings[5].value,
@@ -1095,5 +1125,104 @@ done_path = "sounds/missing.mp3"
             live.keybinds.new_workspace,
             (KeyCode::Char('g'), KeyModifiers::empty())
         );
+    }
+
+    #[test]
+    fn agent_panel_focus_default_is_a() {
+        let config = Config::default();
+        let kb = config.keybinds();
+        assert_eq!(
+            kb.agent_panel_focus,
+            Some((KeyCode::Char('a'), KeyModifiers::empty()))
+        );
+        assert_eq!(kb.agent_panel_focus_label.as_deref(), Some("a"));
+    }
+
+    #[test]
+    fn previous_agent_and_next_agent_default_unbound() {
+        let config = Config::default();
+        let kb = config.keybinds();
+        assert!(kb.previous_agent.is_none());
+        assert!(kb.previous_agent_label.is_none());
+        assert!(kb.next_agent.is_none());
+        assert!(kb.next_agent_label.is_none());
+    }
+
+    #[test]
+    fn custom_agent_keybinds_from_toml() {
+        let toml = r#"
+[keys]
+previous_agent = "ctrl+alt+,"
+next_agent = "ctrl+alt+."
+agent_panel_focus = "ctrl+shift+a"
+"#;
+        let config: Config = toml::from_str(toml).expect("valid toml");
+        let kb = config.keybinds();
+        assert_eq!(
+            kb.previous_agent,
+            Some((
+                KeyCode::Char(','),
+                KeyModifiers::CONTROL | KeyModifiers::ALT,
+            ))
+        );
+        assert_eq!(
+            kb.next_agent,
+            Some((
+                KeyCode::Char('.'),
+                KeyModifiers::CONTROL | KeyModifiers::ALT,
+            ))
+        );
+        assert_eq!(
+            kb.agent_panel_focus,
+            Some((
+                KeyCode::Char('a'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ))
+        );
+    }
+
+    #[test]
+    fn duplicate_agent_keybinding_disables_later_binding() {
+        let toml = r#"
+[keys]
+new_workspace = "n"
+next_agent = "n"
+"#;
+        let config: Config = toml::from_str(toml).expect("valid toml");
+        let kb = config.keybinds();
+        assert_eq!(
+            kb.new_workspace,
+            (KeyCode::Char('n'), KeyModifiers::empty())
+        );
+        assert!(
+            kb.next_agent.is_none(),
+            "duplicate next_agent should be disabled"
+        );
+    }
+
+    #[test]
+    fn agent_panel_focus_default_does_not_conflict_with_reserved_navigate_keys() {
+        let config = Config::default();
+        let kb = config.keybinds();
+        let default_a = (KeyCode::Char('a'), KeyModifiers::empty());
+        assert_eq!(kb.agent_panel_focus, Some(default_a));
+        let reserved = [
+            kb.new_workspace,
+            kb.rename_workspace,
+            kb.close_workspace,
+            kb.new_tab,
+            kb.split_vertical,
+            kb.split_horizontal,
+            kb.close_pane,
+            kb.fullscreen,
+            kb.resize_mode,
+            kb.toggle_sidebar,
+        ];
+        for binding in reserved {
+            assert_ne!(
+                binding, default_a,
+                "agent_panel_focus default 'a' must not collide with another reserved navigate key"
+            );
+        }
     }
 }
